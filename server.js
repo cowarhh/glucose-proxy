@@ -5,26 +5,26 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const LIBRE = 'https://api-de.libreview.io';
-const HEADERS = { 'product': 'llu.ios', 'version': '4.7.0', 'Content-Type': 'application/json' };
-
-app.post('/data', async (req, res) => {
-  const { email, password } = req.body;
+app.post('/zuckerlive', async (req, res) => {
+  const { cookie } = req.body;
+  if (!cookie) return res.status(400).json({ error: 'cookie fehlt' });
   try {
-    const loginRes = await fetch(`${LIBRE}/llu/auth/login`, {
-      method: 'POST',
-      headers: HEADERS,
-      body: JSON.stringify({ email, password })
+    const r = await fetch(`https://www.zuckerlive.de/users/cowar/api.php?ts=${Date.now()}`, {
+      headers: {
+        'Cookie': `PHPSESSID=${cookie}`,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.zuckerlive.de/users/cowar/index.php'
+      }
     });
-    const loginData = await loginRes.json();
-    const token = loginData?.data?.authTicket?.token;
-    if (!token) return res.status(401).json({ error: 'Login fehlgeschlagen' });
-
-    const dataRes = await fetch(`${LIBRE}/llu/connections`, {
-      headers: { ...HEADERS, 'Authorization': `Bearer ${token}` }
+    const d = await r.json();
+    if (!d.glucose) return res.status(401).json({ error: 'session_abgelaufen' });
+    res.json({
+      glucose: d.valueInMgPerDl,
+      arrow: d.trendArrow,
+      timestamp: d.timestamp,
+      graph: (d.graph || []).map(p => p.valueInMgPerDl)
     });
-    const data = await dataRes.json();
-    res.json(data);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
